@@ -11,6 +11,8 @@ fn test_compute_1() {
     initialize_test(
         TestParameters::default().specific_failure(None, None, Some("V3D"), true),
         |ctx| {
+            ctx.device.start_capture();
+
             let input = &[1, 2, 3, 4];
 
             pollster::block_on(assert_execute_gpu(
@@ -19,6 +21,8 @@ fn test_compute_1() {
                 input,
                 &[0, 1, 7, 2],
             ));
+
+            ctx.device.stop_capture();
         },
     );
 }

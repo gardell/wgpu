@@ -83,10 +83,16 @@ async fn execute_gpu_inner(
     //   `BufferUsages::MAP_READ` allows it to be read (outside the shader).
     //   `BufferUsages::COPY_DST` allows it to be the destination of the copy.
     let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
+        label: Some("Output Staging Buffer"),
         size,
         usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
+    });
+
+    let input_staging_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("Input Staging Buffer"),
+        contents: bytemuck::cast_slice(numbers),
+        usage: wgpu::BufferUsages::MAP_WRITE | wgpu::BufferUsages::COPY_SRC,
     });
 
     // Instantiates buffer with data (`numbers`).
@@ -94,12 +100,13 @@ async fn execute_gpu_inner(
     //   A storage buffer (can be bound within a bind group and thus available to a shader).
     //   The destination of a copy.
     //   The source of a copy.
-    let storage_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+    let storage_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Storage Buffer"),
-        contents: bytemuck::cast_slice(numbers),
+        size,
         usage: wgpu::BufferUsages::STORAGE
             | wgpu::BufferUsages::COPY_DST
             | wgpu::BufferUsages::COPY_SRC,
+        mapped_at_creation: false,
     });
 
     // A bind group defines how buffers are accessed by shaders.
@@ -131,6 +138,7 @@ async fn execute_gpu_inner(
     // It is to WebGPU what a command buffer is to Vulkan.
     let mut encoder =
         device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+    encoder.copy_buffer_to_buffer(&input_staging_buffer, 0, &storage_buffer, 0, size);
     {
         let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
         cpass.set_pipeline(&compute_pipeline);
